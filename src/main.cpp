@@ -25,9 +25,9 @@ int main() {
     // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Maras_CT"; // premalo CT slika=? - ne valja
     // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Milovanovic_CT";
     // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Rebernik_CT"; // ista stvar kao Maras!
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Soplanda_CT";
+    std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Soplanda_CT";
 
-    std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/CQ500/thin/patient24";
+    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/CQ500/thin/patient24";
     visualizer vis1(folderPath);
     vis1.run();
     return 0;

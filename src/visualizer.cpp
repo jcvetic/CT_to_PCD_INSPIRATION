@@ -36,6 +36,8 @@
 #include <pcl/common/centroid.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/crop_box.h>
+#include <pcl/filters/radius_outlier_removal.h>
+
 
 #include <opencv2/opencv.hpp>
 
@@ -141,6 +143,13 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     voxelFilter_combined.setInputCloud(combined_cloud);
     voxelFilter_combined.filter(*filtered_combined_cloud);
+
+    // pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+    // outrem.setInputCloud(combined_cloud);
+    // outrem.setRadiusSearch(100);
+    // outrem.setMinNeighborsInRadius(1000);
+    // outrem.setKeepOrganized(true);
+    // outrem.filter(*filtered_combined_cloud);
 
     pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/filtered_combined_cloud.pcd", *filtered_combined_cloud);
 

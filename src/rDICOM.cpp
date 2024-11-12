@@ -45,6 +45,7 @@
 
 #include <vtkDecimatePro.h>
 #include <vtkTriangle.h>
+#include <math.h>
 
 #include "rDICOM.h"
 
@@ -54,7 +55,7 @@
 std::vector<std::array<double, 4>> pointsVector;
 std::vector<double> xyzList(6);
 bool foundXYZ = false;
-int border = 0;
+int border = 0; float maxdist;
 
 cv::Mat rDICOM::ConvertVTKSliceToOpenCVMat(vtkSmartPointer<vtkImageData> slice) {
     int dims[3];
@@ -161,7 +162,7 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
     cv::convexHull(largestContour,contHull);
     contHullArea = cv::contourArea(contHull);
     solidity = contourArea / contHullArea;
-    std::cout << solidity << std::endl;
+    // std::cout << solidity << std::endl;
     // std::cout << contArea << std::endl << std::endl;
     // std::cout << contourArea << std::endl;
     // std::cout << std::abs(contArea - cv::contourArea(largestContour)) << std::endl;
@@ -235,6 +236,7 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
 
     contArea = cv::contourArea(largestContour);
     contLength = cv::arcLength(largestContour,true);
+    // std::cout << contLength << std::endl;
 
     if (contourArea > 50000){ // 40000
         if (persp == 1 || persp == 2){
@@ -253,6 +255,39 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
                         }
                     }
                     if (onContourCounter >= 5){
+                        // cv::imshow("image2", image2);
+                        // cv::waitKey(0);
+                        // cv::destroyAllWindows();
+                        return std::vector<cv::Point>();
+                    }
+                }
+            }
+        }
+        else {
+            int onContourCounter; int prevColumn; int rowIdx;
+            for (int j = image2.rows/2; j <= image2.rows; j++){
+                if (image2.at<uchar>(image2.cols/2,j) == 255){
+                    rowIdx = j;
+                }
+                else {
+                    break;
+                }
+            }
+            for (int j = image2.rows/1.5; j <= rowIdx-10; j++){
+                onContourCounter = 0;
+                prevColumn = -1;
+                for (int i = image2.cols-1; i >= 0; i--){
+                    double pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i,j),false);
+
+                    if (pointOnContour == 0){
+                        if (prevColumn == -1 || (prevColumn - i >= 10)){
+                            cv::circle(image2, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2);
+                            prevColumn = i;
+                            onContourCounter += 1;
+                        }
+                    }
+                    if (onContourCounter >= 4){
+                        // cv::circle(image2, cv::Point2f(10,j), 2, cv::Scalar(255,0,0), 2);
                         // cv::imshow("image2", image2);
                         // cv::waitKey(0);
                         // cv::destroyAllWindows();
@@ -335,8 +370,8 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
     int dims[3];
     volume->GetDimensions(dims); // Get the dimensions of the volume data
     vtkSmartPointer<vtkMatrix4x4> resliceAxes = vtkSmartPointer<vtkMatrix4x4>::New();
-
-    bool initializeXYZ = true;
+    std::cout << persp << std::endl;
+    bool initializeXYZ = true; float currdist;
 
     switch (persp) {
     case 0:
@@ -408,6 +443,7 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                         xyzList[4] = 0;
                         xyzList[5] = dims[2];
                         initializeXYZ = false;
+                        maxdist = 0;
                     }
                     // Add to the vector
                     if (worldPoint[0] < xyzList[0]) {
@@ -422,15 +458,20 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     if (worldPoint[1] > xyzList[3]) {
                         xyzList[3] = worldPoint[1];
                     }
+
+                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
+                    if (currdist > maxdist){
+                        maxdist = currdist;
+                    }
+
                 }
             }
+            // std::cout << maxdist << std::endl;
         }
-
         break;
-
     case 1:
         // Setup the slicing orientation ----> SAGITAL slicing!!!!
-        resliceAxes->Identity();
+        resliceAxes->Identity();        
 
         resliceAxes->SetElement(0, 0, 0);
         resliceAxes->SetElement(0, 1, 0);
@@ -490,15 +531,16 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     worldPoint[1] = p[0] * spacing[1] + origin[1]; 
                     worldPoint[2] = -1*(p[1] * spacing[2] + origin[2])+dims[2]*spacing[2];
                     worldPoint[3] = 1; 
-
+                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
                     // Add to the vector
-
-                    if (xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2])
+                    std::cout << maxdist << std::endl;
+                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2]) && (std::abs(currdist) < std::abs(maxdist))){
                         pointsVector.push_back(worldPoint);
+                    }
                 }
             }
         }
-        break;
+        break; 
     case 2:
         // Setup the slicing orientation ----> CORONAL slicing!!!!
         resliceAxes->Identity();
@@ -563,8 +605,9 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     worldPoint[1] = sliceOrigin;// Y in mm
                     worldPoint[2] = -1*(p[1] * spacing[2] + origin[2])+dims[2]*spacing[2]; 
                     worldPoint[3] = 1; 
+                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
 
-                    if (xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2])
+                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2]) && (currdist < maxdist))
                         pointsVector.push_back(worldPoint);
                 }
             }
@@ -638,7 +681,7 @@ std::vector<std::vector<std::array<double, 4>>> rDICOM::getDICOMdata(std::string
         pointsVector.clear();
         firstInit = true;
         ProcessAndReplaceAllSlices(volume, persp); // 0 = axial, 1 = sagital, 2 = coronal
-        std::cout << "Iteration" << persp << "done\n";
+        std::cout << "Iteration " << persp << " done\n";
 
         if (pointsVector.size()>1){
             voxelVector[persp].insert(voxelVector[persp].end(), pointsVector.begin(), pointsVector.end());

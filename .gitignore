@@ -1,0 +1,9 @@
+data/
+build/
+pointcloud*.pcd
+pointcloud*
+filtered_combined_cloud.pcd
+DICOM_dataInfo.odt
+combined_cloud.pcd
+.vscode
+.cache

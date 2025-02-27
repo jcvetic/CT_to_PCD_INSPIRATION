@@ -1,34 +1,75 @@
+#include "includes.h"
 #include "visualizer.h"
 
+
+void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/times.csv") {
+    std::ofstream file(filename, std::ios::app); // Open in append mode
+    if (file.is_open()) {
+        file << elapsedTime << "\n"; // Append new time to file
+        file.close();
+    } else {
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
+    }
+}
+
 int main() {
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Banovic_CT+";
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Pehar_CT";
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Ridanec_CT";
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Cvitan_CT"; // cijeli u banani - puno okolnog suma
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Jurak_CT";
-    // std::string folderPath = "/home/jcvetic/Patient_registration_cveta/Patient_registration/CT_dicom/Subotic_CT";
+    bool firstInit = true; bool directories = false; bool saveData = false;
+    std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/Ledinski_CT";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/3";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/dicombaza/Krhen_CT";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/thin/patient80";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip/patient20";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/decomp";
 
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Vukovic_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Brankovic_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Serdarusic_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Zugaj_CT"; // dobar primjer
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Puhalovic_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Boros_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Capin_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Herceg_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Ledinski_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/slobodnoCT/Palinic_CT";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CT_dicom/Cvitan_CT";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/";
 
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Agbaba_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Dedus_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Krhen_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Maras_CT"; // premalo CT slika=? - ne valja
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Milovanovic_CT";
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Rebernik_CT"; // ista stvar kao Maras!
-    // std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/dicombaza/Soplanda_CT";
+    for (const auto& entry : std::filesystem::directory_iterator(basePath)){
+        if (entry.is_directory()){
+            directories = true;
+            break;
+        }
+    }
+    if (directories){
+        std::vector<double> timeelapsed;
+        for (const auto& entry : std::filesystem::directory_iterator(basePath)){
+            if (entry.is_directory()){
+                std::string folderPath = entry.path().string();
+                std::filesystem::path path(folderPath);
+                std::string patientName = path.filename().string();
 
-    std::string folderPath = "/home/jcvetic/Visualize_pointclouds/data/CQ500/thin/patient6";
-    visualizer vis1(folderPath);
-    vis1.run();
+                // const auto start{std::chrono::steady_clock::now()};
+                visualizer vis1(folderPath);
+
+                vis1.run(patientName, firstInit, saveData);
+                // const auto finish{std::chrono::steady_clock::now()};
+                // const std::chrono::duration<double> elapsed{finish - start};
+
+                // timeelapsed.push_back(elapsed.count());
+                // saveTimeToCSV(elapsed.count());
+
+                // if (timeelapsed.size() == 40){
+                //     std::cout << "Elapsed times: ";
+                //     for (double time : timeelapsed) {
+                //         std::cout << time << "s ";
+                //     }
+                // std::cout << std::endl;
+                // }
+                if (firstInit){
+                    firstInit=!firstInit;
+                }
+            }
+        }
+    }
+    else{
+        visualizer vis1(basePath);
+        vis1.run(basePath, firstInit, saveData);
+    }
+
+    // std::filesystem::path path(folderPath);
+    // std::string patientName = path.filename().string();
+    // visualizer vis1(folderPath);
+    // vis1.run(patientName);
     return 0;
 }

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(Visualize_pointclouds LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 14) #17
+set(CMAKE_CXX_STANDARD 17) #17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -13,6 +13,7 @@ add_executable(Visualize_pointclouds
     src/main.cpp 
     src/rDICOM.cpp
     src/visualizer.cpp
+    include/includes.h
     include/rDICOM.h
     include/visualizer.h
     )

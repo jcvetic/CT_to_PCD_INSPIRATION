@@ -2,8 +2,8 @@ import pydicom
 import os
 
 # Paths to input compressed file and output decompressed file
-input_dir = "/home/jcvetic/Visualize_pointclouds/data/CQ500/thin"
-output_dir = "/home/jcvetic/Visualize_pointclouds/data/CQ500/decompressed"
+input_dir = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/decomp"
+output_dir = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/decomp"
 
 for subfol in os.listdir(input_dir):
     subfolder = os.path.join(input_dir,subfol)

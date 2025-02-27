@@ -1,26 +1,15 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <thread>
-#include <chrono>
+#include "includes.h"
 
-// PCL core functionality
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
-#include <pcl/io/vtk_lib_io.h> // For loading STL files
-
-// PCL visualization
+#include <pcl/io/vtk_lib_io.h> 
 #include <pcl/visualization/pcl_visualizer.h>
-
-// PCL processing
 #include <pcl/common/transforms.h>
 #include <pcl/filters/voxel_grid.h>
-
 #include <pcl/search/kdtree.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/features/normal_3d.h>
-
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/features/normal_3d.h>
@@ -37,13 +26,18 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/radius_outlier_removal.h>
-
+#include <pcl/surface/convex_hull.h>
+#include <pcl/surface/concave_hull.h>
+#include <pcl/filters/crop_hull.h>
+#include <pcl/io/vtk_io.h>
+#include <Eigen/Core>
+#include <pcl/common/common.h>
+#include <pcl/visualization/cloud_viewer.h>
 
 #include <opencv2/opencv.hpp>
 
-#include "rDICOM.h"
 #include "visualizer.h"
-
+#include "rDICOM.h"
 
 visualizer::visualizer(const std::string& folderPath) : folder(folderPath) {
     voxelVector = rDICOM::getDICOMdata(folder);
@@ -90,7 +84,7 @@ void visualizer::saveCloudWithNormals(pcl::PointCloud<pcl::PointXYZ>::Ptr pcd){
     pcl::PointCloud<pcl::PointNormal>::Ptr cloud_with_normals(new pcl::PointCloud<pcl::PointNormal>);
     pcl::concatenateFields(*pcd, *normals, *cloud_with_normals);
 
-    pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/pointcloud1.pcd", *cloud_with_normals);
+    pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/pointcloud1.pcd", *cloud_with_normals);
 }
 
 void visualizer::setCameraPositionBasedOnBoundingBox(pcl::visualization::PCLVisualizer& viewer, const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud) {
@@ -105,11 +99,25 @@ void visualizer::setCameraPositionBasedOnBoundingBox(pcl::visualization::PCLVisu
 }
 
 
-void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloudVector) {
+void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloudVector, std::vector<float>& pcdInfo, std::string& patientName) {
+    if (patientName.size() > 30){
+        size_t pos = patientName.find_last_of('/');
+        patientName = patientName.substr(pos + 1);
+    }
+
+    std::string savefolder = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/" + patientName;
+    if (!std::filesystem::exists(savefolder)){
+        if(std::filesystem::create_directory(savefolder)){
+        }
+    }
+    
     pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud1 = cloudVector[0];
     pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud2 = cloudVector[1];
     pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud3 = cloudVector[2];
 
+    for (int i=0; i < cloudVector.size(); i++){
+        pcdInfo.push_back(cloudVector[i]->size());
+    }
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter;
     voxelFilter.setLeafSize(1.0f, 1.0f, 1.0f); // Set the voxel size
@@ -118,65 +126,67 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud2(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud3(new pcl::PointCloud<pcl::PointXYZ>());
 
-
     voxelFilter.setInputCloud(pointCloud1);
     voxelFilter.filter(*filteredPointCloud1);
-    std::cout << "Filtered Cloud1 size = " << filteredPointCloud1->size() << std::endl;
+    std::cout << "Filtered axial cloud = " << filteredPointCloud1->size() << std::endl;
 
     voxelFilter.setInputCloud(pointCloud2);
     voxelFilter.filter(*filteredPointCloud2);
-    std::cout << "Filtered Cloud2 size = " << filteredPointCloud2->size() << std::endl;
+    std::cout << "Filtered sagittal cloud = " << filteredPointCloud2->size() << std::endl;
 
 
     voxelFilter.setInputCloud(pointCloud3);
     voxelFilter.filter(*filteredPointCloud3);
-    std::cout << "Filtered Cloud3 size = " << filteredPointCloud3->size() << std::endl;
+    std::cout << "Filtered coronal cloud = " << filteredPointCloud3->size() << std::endl;
 
-    std::cout << "Total sum of filtered clouds " << filteredPointCloud1->size() + filteredPointCloud2->size() + filteredPointCloud3->size() << std::endl << std::endl;
+
+    pcdInfo.push_back(filteredPointCloud1->size());
+    pcdInfo.push_back(filteredPointCloud2->size());
+    pcdInfo.push_back(filteredPointCloud3->size());
+
+    std::cout << "Total sum of filtered clouds = " << filteredPointCloud1->size() + filteredPointCloud2->size() + filteredPointCloud3->size() << std::endl;
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter_combined;
     voxelFilter_combined.setLeafSize(1.0f, 1.0f, 1.0f); // Set the voxel size
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-    *combined_cloud = *filteredPointCloud1 + *filteredPointCloud2 + *filteredPointCloud3;
+    *combined_cloud = *filteredPointCloud1 + *filteredPointCloud2+ *filteredPointCloud3;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     voxelFilter_combined.setInputCloud(combined_cloud);
     voxelFilter_combined.filter(*filtered_combined_cloud);
+    std::cout << "Filtered combined cloud = " << filtered_combined_cloud->size() << std::endl;
 
-    // pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
-    // outrem.setInputCloud(combined_cloud);
-    // outrem.setRadiusSearch(100);
-    // outrem.setMinNeighborsInRadius(1000);
-    // outrem.setKeepOrganized(true);
-    // outrem.filter(*filtered_combined_cloud);
+    pcdInfo.push_back(combined_cloud->size());
+    pcdInfo.push_back(filtered_combined_cloud->size());
 
-    pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/filtered_combined_cloud.pcd", *filtered_combined_cloud);
+    pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+    outrem.setInputCloud(filtered_combined_cloud);
+    outrem.setRadiusSearch(10); // 10,5
+    outrem.setMinNeighborsInRadius(250); // 100, 800(nestane cijeli pcd), 400(pola pcd fali), 250 je ok, 55
+    outrem.setKeepOrganized(false);
+    outrem.filter(*filtered_combined_cloud);
+
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(filtered_combined_cloud);
+    sor.setMeanK(20);
+    sor.setStddevMulThresh(4.0);
+    sor.filter(*filtered_combined_cloud);
+
+    // pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/filtered_combined_cloud.pcd", *filtered_combined_cloud);
+    // pcl::io::savePCDFileASCII(savefolder + "/filteredCC_PCD.pcd", *filtered_combined_cloud);
+
+    pcl::PCLPointCloud2 filteredpc2;
+    pcl::toPCLPointCloud2(*filtered_combined_cloud,filteredpc2);
+    // pcl::io::saveVTKFile("/home/jcvetic/INSPIRATION/Visualize_pointclouds/filtered_combined_cloud.vtk", filteredpc2);
+    // pcl::io::saveVTKFile(savefolder + "/filteredCC_VTK.vtk", filteredpc2);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr diffIndices(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(filteredPointCloud1);
 
-    // float epsilon = 0.9; // Distance threshold
-    // std::vector<int> point_idx_search(1);
-    // std::vector<float> point_squared_distance(1);
-
-    // for (int i = filtered_combined_cloud->points.size() -1 ; i >= 0; --i) {
-    //     pcl::PointXYZ search_point = filtered_combined_cloud->points[i];
-
-    //     // Search for nearest neighbor in the axial cloud
-    //     if (kdtree.nearestKSearch(search_point, 1, point_idx_search, point_squared_distance) > 0) {
-    //         // Check if the distance is greater than the threshold
-    //         if (sqrt(point_squared_distance[0]) > epsilon) {
-    //             // If the point is unique, add it to the unique cloud
-    //             diffIndices->points.push_back(search_point);
-    //             filtered_combined_cloud->points.erase(filtered_combined_cloud->begin() + i);
-    //         }
-    //     }
-    // }
-
     float radius = 1.0;
-    for (int i = filtered_combined_cloud->points.size() - 1; i >= 0; --i){
+    for (int i = filtered_combined_cloud->points.size() - 1; i >= 0; --i){ // filtered_combined_cloud == downsampled + outlierremoval, UNIQUE tocke, a cista razlika predstavlja ukupnu razliku broja tocaka!!!
         pcl::PointXYZ search_point = filtered_combined_cloud->points[i];
         std::vector<int> point_idx_search;
         std::vector<float> point_squared_distance;
@@ -191,104 +201,117 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     diffIndices->height = filtered_combined_cloud->height;
     diffIndices->is_dense = true;
 
+    pcdInfo.push_back(diffIndices->size());
 
     // *********************** COMBINED_CLOUD ************************************************************************************************
 
-    pcl::visualization::PCLVisualizer viewer("Filtered_combined_cloud");
-    viewer.setSize(1920/2,1080);
-    viewer.setPosition(1920+1920/2,0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color(filtered_combined_cloud, 255, 255/2, 0); // 255, 0, 0
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color88(diffIndices, 0, 255, 0); // 255, 0, 0
+    // pcl::visualization::PCLVisualizer viewer("Filtered_combined_cloud");
+    std::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("Filtered_combined_cloud"));
+    viewer->setSize(1920/2,1080);
+    viewer->setPosition(1920+1920/2,0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color(filtered_combined_cloud, 255, 255/2, 0); // 255,255/2,0
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color88(diffIndices, 0, 0, 255); // 0,0,255
 
-    viewer.addPointCloud(filtered_combined_cloud, color, "cloud");
-    viewer.addPointCloud(diffIndices, color88, "cloud88");
-    viewer.setBackgroundColor(0, 0, 0);
-    visualizer::setCameraPositionBasedOnBoundingBox(viewer, filtered_combined_cloud);
+    viewer->addPointCloud(filtered_combined_cloud, color, "cloud");
+    viewer->addPointCloud(diffIndices, color88, "cloud88");
+    viewer->setBackgroundColor(1, 1, 1);
+    visualizer::setCameraPositionBasedOnBoundingBox(*viewer, filtered_combined_cloud);
 
-    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud");
-    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud88");
-    std::cout << "Number of points in combinedcloud_filtered " << filtered_combined_cloud->size() << std::endl;
-    std::cout << "Number of difference points between combined and axial cloud: " << diffIndices->size() << std::endl;
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud88");
+    // std::cout << "Number of difference points between Fcombined and Faxial cloud = " << diffIndices->size() << std::endl;
 
 // dodano --- ines crop
-    pcl::CropBox<pcl::PointXYZ> boxfilter;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr croppedcloud(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr croppeddiff(new pcl::PointCloud<pcl::PointXYZ>);
+    // pcl::CropBox<pcl::PointXYZ> boxfilter;
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr croppedcloud(new pcl::PointCloud<pcl::PointXYZ>);
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr croppeddiff(new pcl::PointCloud<pcl::PointXYZ>);
 
-    boxfilter.setMin(Eigen::Vector4f(-300.0,125.0,-300.0,1.0));
-    boxfilter.setMax(Eigen::Vector4f(300.0,250.0,300.0,1.0));
-    boxfilter.setInputCloud(filtered_combined_cloud);
-    boxfilter.filter(*croppedcloud);
-    boxfilter.setInputCloud(diffIndices);
-    boxfilter.filter(*croppeddiff);
+    // boxfilter.setMin(Eigen::Vector4f(-300.0,125.0,-300.0,1.0));
+    // boxfilter.setMax(Eigen::Vector4f(300.0,250.0,300.0,1.0));
+    // boxfilter.setInputCloud(filtered_combined_cloud);
+    // boxfilter.filter(*croppedcloud);
+    // boxfilter.setInputCloud(diffIndices);
+    // boxfilter.filter(*croppeddiff);
 
-    pcl::visualization::PCLVisualizer viewer44("cropped");
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color44(croppedcloud, 255/2, 255, 255/2); // 255, 0, 0
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color45(croppeddiff, 255/2, 255, 255/2); // 255, 0, 0
+    // pcl::visualization::PCLVisualizer viewer44("cropped");
+    // std::unique_ptr<pcl::visualization::PCLVisualizer> viewer44(new pcl::visualization::PCLVisualizer("cropped"));
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color44(croppedcloud, 255/2, 255, 255/2); // 255, 0, 0
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color45(croppeddiff, 255/2, 255, 255/2); // 255, 0, 0
 
+    // // roc
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr boxfiltered(new pcl::PointCloud<pcl::PointXYZ>());
+    // *boxfiltered = *croppedcloud + *croppeddiff;
+    // pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/cropped.pcd", *boxfiltered);
+    // // roc_end
 
-    viewer44.addPointCloud(croppedcloud, color44, "cloud44");
-    viewer44.addPointCloud(croppeddiff, color45, "cloud45");
-    viewer44.setBackgroundColor(0,0,0);
-    viewer44.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud44");
-    viewer44.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud45");
+    // viewer44->addPointCloud(croppedcloud, color44, "cloud44");
+    // viewer44->addPointCloud(croppeddiff, color45, "cloud45");
+    // viewer44->setBackgroundColor(0,0,0);
+    // viewer44->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud44");
+    // viewer44->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud45");
 // ines crop end
 
 // ********************************** AXIAL_VIEW ********************************************************************************************
 
-    pcl::visualization::PCLVisualizer viewer2("Filtered_axial_view");
-    viewer2.setSize(1920/2,1080);
-    viewer2.setPosition(0,0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color1(filteredPointCloud1, 255, 0, 0); // 255, 0, 0
+    // pcl::visualization::PCLVisualizer viewer2("Filtered_axial_view");
+    // std::unique_ptr<pcl::visualization::PCLVisualizer> viewer2(new pcl::visualization::PCLVisualizer("Filtered_axial_view"));
+    // viewer2->setSize(1920/2,1080);
+    // viewer2->setPosition(0,0);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color1(filteredPointCloud1, 255, 0, 0); // 255, 0, 0
 
-    viewer2.addPointCloud(filteredPointCloud1, color1, "cloud1");
+    // viewer2->addPointCloud(filteredPointCloud1, color1, "cloud1");
 
-    viewer2.setBackgroundColor(0, 0, 0);
-    visualizer::setCameraPositionBasedOnBoundingBox(viewer2, filteredPointCloud1);
+    // viewer2->setBackgroundColor(1, 1, 1);
+    // visualizer::setCameraPositionBasedOnBoundingBox(*viewer2, filteredPointCloud1);
 
-    viewer2.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud1");
+    // viewer2->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud1");
 
-    pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/pointcloud1.pcd", *filteredPointCloud1);
+    // pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/pointcloud1.pcd", *filteredPointCloud1);
+    // pcl::io::savePCDFileASCII(savefolder + "/axial.pcd", *filteredPointCloud1);
 
     // ********************************** SAGITAL_VIEW ********************************************************************************************
 
-    pcl::visualization::PCLVisualizer viewer3("Filtered_sagital_view");
-    viewer3.setSize(1920/2,1080);
-    viewer3.setPosition(1920/2,0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color2(filteredPointCloud2, 176, 255, 0); // 255, 0, 0
+    // pcl::visualization::PCLVisualizer viewer3("Filtered_sagital_view");
+    // std::unique_ptr<pcl::visualization::PCLVisualizer> viewer3(new pcl::visualization::PCLVisualizer("Filtered_sagital_view"));
+    // viewer3->setSize(1920/2,1080);
+    // viewer3->setPosition(1920/2,0);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color2(filteredPointCloud2, 0, 255, 0); // 255, 0, 0
 
-    viewer3.addPointCloud(filteredPointCloud2, color2, "cloud2");
+    // viewer3->addPointCloud(filteredPointCloud2, color2, "cloud2");
 
-    viewer3.setBackgroundColor(0, 0, 0);
-    visualizer::setCameraPositionBasedOnBoundingBox(viewer3, filteredPointCloud2);
+    // viewer3->setBackgroundColor(255, 255, 255);
+    // visualizer::setCameraPositionBasedOnBoundingBox(*viewer3, filteredPointCloud2);
 
-    viewer3.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud2");
-    pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/pointcloud2.pcd", *filteredPointCloud2);
+    // viewer3->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud2");
+    // pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/pointcloud2.pcd", *filteredPointCloud2);
+    // pcl::io::savePCDFileASCII(savefolder + "/sagittal.pcd", *filteredPointCloud2);
 
     // ********************************** CORONAL_VIEW ********************************************************************************************
 
-    pcl::visualization::PCLVisualizer viewer4("Filtered_coronal_view");
-    viewer4.setSize(1920/2,1080);
-    viewer4.setPosition(1920,0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color3(filteredPointCloud3, 20, 100, 255); // 255, 0, 0
+    // pcl::visualization::PCLVisualizer viewer4("Filtered_coronal_view");
+    // std::unique_ptr<pcl::visualization::PCLVisualizer> viewer4(new pcl::visualization::PCLVisualizer("Filtered_coronal_view"));
+    // viewer4->setSize(1920/2,1080);
+    // viewer4->setPosition(1920,0);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> color3(filteredPointCloud3, 20, 100, 255); // 255, 0, 0
 
-    viewer4.addPointCloud(filteredPointCloud3, color3, "cloud3");
+    // viewer4->addPointCloud(filteredPointCloud3, color3, "cloud3");
 
-    viewer4.setBackgroundColor(0, 0, 0);
-    visualizer::setCameraPositionBasedOnBoundingBox(viewer4, filteredPointCloud3);
+    // viewer4->setBackgroundColor(255, 255, 255);
+    // visualizer::setCameraPositionBasedOnBoundingBox(*viewer4, filteredPointCloud3);
 
-    viewer4.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud3");
-    pcl::io::savePCDFileASCII("/home/jcvetic/Visualize_pointclouds/pointcloud3.pcd", *filteredPointCloud3);
+    // viewer4->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud3");
+    // pcl::io::savePCDFileASCII("/home/jcvetic/INSPIRATION/Visualize_pointclouds/pointcloud3.pcd", *filteredPointCloud3);
+    // pcl::io::savePCDFileASCII(savefolder + "/coronal.pcd", *filteredPointCloud3);
 
-    while (!viewer.wasStopped()){
-        viewer.spinOnce();
-        viewer2.spinOnce();
-        viewer3.spinOnce();
-        viewer4.spinOnce();
-        viewer44.spinOnce();
+    while (!viewer->wasStopped()){
+        viewer->spinOnce();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    //     viewer2->spinOnce();
+    //     viewer3->spinOnce();
+    //     viewer4->spinOnce();
+    //     // viewer44.spinOnce();
 
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     // return 0;
 }
@@ -297,10 +320,10 @@ void visualizer::meshVTK(){
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jcvetic/Visualize_pointclouds/pointcloud1.pcd", *cloud) == -1){
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jcvetic/INSPIRATION/Visualize_pointclouds/pointcloud1.pcd", *cloud) == -1){
         PCL_ERROR("Couldn't read file input.pcd \n");
     }
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jcvetic/Visualize_pointclouds/filtered_combined_cloud.pcd", *combined_cloud) == -1){
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jcvetic/INSPIRATION/Visualize_pointclouds/filtered_combined_cloud.pcd", *combined_cloud) == -1){
         PCL_ERROR("Couldn't read file input.pcd \n");
     }
 
@@ -407,8 +430,51 @@ void visualizer::meshVTK(){
     }
 }
 
-void visualizer::run() {
+
+void visualizer::outputData(const std::string& patientName, const std::vector<float>& pcdInfo, bool& firstInit){
+    std::ofstream file; bool fileExists;
+    struct stat buffer; std::string savepath;
+
+    savepath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/pcdData.csv";
+    
+    if ((stat (savepath.c_str(), &buffer) == 0)){
+        fileExists = true;
+    }
+    else{
+        fileExists = false;
+    }
+
+    if (firstInit){
+        if (fileExists){
+            file.open(savepath, std::ios::app);
+        }
+        else{
+            file.open(savepath, std::ios::out);
+            file << "Patient, rawApcd, rawSpcd, rawCpcd, fApcd, fSpcd, fCpcd, Combpcd, fCombpcd, diff(fApcd,fCombpcd)\n";
+        }
+    }
+    else{
+        file.open(savepath, std::ios::app);
+    }
+
+    if (file.is_open()){
+        file << patientName << ",";
+
+        for (int i = 0; i < pcdInfo.size(); ++i){
+            file << pcdInfo[i];
+            if (i < pcdInfo.size() -1){
+                file << ",";
+            } 
+        }
+        file << "\n";
+    }
+    file.close();
+    // std::cout << "Data saved!" << std::endl;
+}
+
+void visualizer::run(std::string& patientName, bool& firstInit, bool saveData) {
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> pointCloud(3);
+    std::vector<float> pcdInfo;
     for (int i = 0; i < 3; i++) {
         pointCloud[i] = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
     }
@@ -417,7 +483,11 @@ void visualizer::run() {
     // std::cout << "starting cloudWithNormals process" << std::endl;
     // saveCloudWithNormals(pointCloud[0]);
     // std::cout << "done" << std::endl;
-    visualizePointClouds(pointCloud);
-    std::cout << "Done executing." << std::endl;
+    visualizePointClouds(pointCloud, pcdInfo, patientName);
     // meshVTK();
+
+    if (saveData){
+        outputData(patientName, pcdInfo, firstInit);
+        std::cout << "Patient data saved." << std::endl << std::endl;
+    }
 }

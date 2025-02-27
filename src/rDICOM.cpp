@@ -1,13 +1,4 @@
-//Function to read DICOM file and write voxel x,y,z coordinates and  value in a vektor
-
-//Primjer poziva: std::string folder = "/home/stipe/projects/rDICOM/mriDICOM/";
-//                auto voxelVector = rDICOM::getDICOMdata(folder);
-
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <array>
-#include <cmath>
+#include "includes.h"
 
 #include <eigen3/Eigen/Eigen>
 #include <vtkSmartPointer.h>
@@ -32,24 +23,19 @@
 #include <vtkPolyDataConnectivityFilter.h>
 #include <vtkSTLWriter.h>
 #include <vtkNew.h>
-
+#include <vtkPointData.h>
 #include <vtkPolyLine.h>
 #include <vtkCellArray.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
 #include <vtkIdList.h>
-
 #include <vtkImageReslice.h>
 #include <vtkMatrix4x4.h>
-
 #include <vtkDecimatePro.h>
 #include <vtkTriangle.h>
-#include <math.h>
 
 #include "rDICOM.h"
-
-#include <opencv2/opencv.hpp>
 
 // Member variable to store the points
 std::vector<std::array<double, 4>> pointsVector;
@@ -59,6 +45,7 @@ int border = 0; float maxdist;
 
 cv::Mat rDICOM::ConvertVTKSliceToOpenCVMat(vtkSmartPointer<vtkImageData> slice) {
     int dims[3];
+    // Get the dimensions of the slice (width, height, depth)
     slice->GetDimensions(dims);
 
     // Assuming the slice is a single channel grayscale image
@@ -76,8 +63,8 @@ cv::Mat rDICOM::ConvertVTKSliceToOpenCVMat(vtkSmartPointer<vtkImageData> slice) 
             int idx = y * dims[0] + x;
             short value = scalars->GetTuple1(idx);
 
-            // Map HU values between -500 and 200 to 255, else to 0
-            if (value >= -500 && value <= 200) {
+            // Map HU values between -500 and 200 to 255, else to 0, -450 100
+            if (value >= -200 && value <= 220) { // 175,150
                 cvImage.at<uchar>(y, x) = 255;
             } else {
                 cvImage.at<uchar>(y, x) = 0;
@@ -85,18 +72,22 @@ cv::Mat rDICOM::ConvertVTKSliceToOpenCVMat(vtkSmartPointer<vtkImageData> slice) 
         }
     }
 
+    // cv::imshow("image123", cvImage);
+    // cv::waitKey(0);
     return cvImage;
 }
 
-double contArea; bool firstInit = true; double contLength;
+double contArea; bool firstInit = true; double contLength; double contArea2; 
+// int iterator = 1608;
 // AXIAL 0, SAGITAL 1, CORONAL 2 VIEW -------------------------------------------------------------------------------------------------------------------------------
-std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool includeInteriorPoints, int persp) {
+std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool includeInteriorPoints, int persp, int sliceNum) {
     std::vector<std::vector<cv::Point>> contours;
     double diffResult;
-    cv::Mat image2;
+    cv::Mat image2; cv::Mat tempBGR; cv::Mat test123;
     image2 = image.clone();
-
-    cv::findContours(image2, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    tempBGR = image2.clone();
+    cv::cvtColor(tempBGR, tempBGR, cv::COLOR_GRAY2BGR);
+    cv::findContours(image2, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE); //external, NONE
 
     for (auto it = contours.begin(); it != contours.end();) {
         cv::Moments m = cv::moments(*it);
@@ -104,12 +95,29 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
         if (m.m00 != 0) {
             cv::Point2f center(m.m10 / m.m00, m.m01 / m.m00);
             // std::cout << center.x << std::endl;
-
-            if (center.x > 100 && center.x < 400 && center.y > 10 && cv::contourArea(*it) > 500) {
-                ++it;
+            if (persp == 0){
+                if (center.x > 140 && center.x < 360 && center.y > 140 && center.y < 360 && cv::contourArea(*it) > 500) {
+                    ++it;
+                }
+                else{
+                    it = contours.erase(it);
+                }                
             }
-            else {
-                it = contours.erase(it);
+            else if (persp == 1){
+                if (center.x > 100 && center.x < 400 && center.y > 10 && cv::contourArea(*it) > 500) {
+                    ++it;
+                }
+                else {
+                    it = contours.erase(it);
+                }
+            }
+            else{
+                if (center.x > 100 && center.x < 400 && center.y > 10 && cv::contourArea(*it) > 500) {
+                    ++it;
+                }
+                else {
+                    it = contours.erase(it);
+                }
             }
         }
         else {
@@ -144,14 +152,16 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
         cv::line(image2, pointList[0], pointList.back(), 255, 1);
     }
 
+    contours.clear();
     cv::findContours(image2, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
     std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
         return cv::contourArea(c1, false) > cv::contourArea(c2, false);});
 
     largestContour = contours.front();
     largestContour.erase(std::remove_if(largestContour.begin(), largestContour.end(),[](const cv::Point& point) { return point.y == 0; }),largestContour.end());
+    larCont.push_back(largestContour);
 
-    if (firstInit){
+    if (firstInit){ 
         contArea = cv::contourArea(largestContour);
         contLength = cv::arcLength(largestContour, true);
         firstInit = false;
@@ -162,45 +172,39 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
     cv::convexHull(largestContour,contHull);
     contHullArea = cv::contourArea(contHull);
     solidity = contourArea / contHullArea;
-    // std::cout << solidity << std::endl;
-    // std::cout << contArea << std::endl << std::endl;
-    // std::cout << contourArea << std::endl;
-    // std::cout << std::abs(contArea - cv::contourArea(largestContour)) << std::endl;
 
-    if (contourArea > 35000){
-        if (solidity < 0.9){
-            // contArea = cv::contourArea(largestContour);
-            // std::cout << "return solidity" << std::endl;
+    if (contourArea > 40000){ // 35k  -- vezan za unutrasnjost glave, nema veze s okolinom
+        if (solidity < 0.88){
             return std::vector<cv::Point>();
         }
     }
 
-    if (8000 < std::abs(contArea - cv::contourArea(largestContour)) && std::abs(contArea - cv::contourArea(largestContour)) < 90000){
+    if (8000 < std::abs(contArea - cv::contourArea(largestContour)) && std::abs(contArea - cv::contourArea(largestContour)) < 120000){ // 8000 i 90000, izvan pronadene konture ne smije biti bijelo, to je filter za uklanjanje slucaja di je krug unutar kruga (vanjski je tocan, a nade se odvojeni unutrasnji)
         cv::Moments m = cv::moments(largestContour);
         cv::Point2f center(m.m10 / m.m00, m.m01 / m.m00);
         int centery = center.y; int pointOnContour;
 
-        for (int i = centery; i < image2.rows; i++ ){
+        for (int i = centery; i < image2.rows; i+=2 ){
             pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(center.x, i),false);
-
-            if (pointOnContour < 0) {
-                // cv::circle(image2, cv::Point2f(center.x,i), 1, 255, 3);
+            if (pointOnContour == -1) {
                 if (image2.at<uchar>(i, center.x) == 255) {
-                    // contArea = cv::contourArea(largestContour);
-                    // std::cout << "return pointoncontour to downstairs" << std::endl;
+                    // if (persp == 1){
+                    // cv::cvtColor(image2,image2,cv::COLOR_GRAY2BGR);
+                    // cv::drawContours(image2, larCont, -1, cv::Scalar(255,0,255),2); // image2 inace!!1
+                    // cv::circle(image2, cv::Point2f(center.x,i), 8, cv::Scalar(0,255,0), -1);
+                    // cv::circle(image2, cv::Point2f(center.x,center.y), 8, cv::Scalar(255,255,0), -1);
+                    // cv::imshow("image123", image2);
+                    // cv::waitKey(0);
+                    // }
                     return std::vector<cv::Point>();
                 }
             }
         }
 
-        for (int i = centery; i >= 0; i-- ){
+        for (int i = centery; i >= 0; i-=2 ){
             pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(center.x, i),false);
-
-            if (pointOnContour < 0) {
-                // cv::circle(image2, cv::Point2f(center.x,i), 1, 255, 3);
+            if (pointOnContour == -1) {
                 if (image2.at<uchar>(i, center.x) == 255) {
-                    // contArea = cv::contourArea(largestContour);
-                    // std::cout << "return pointoncontour to upstairs" << std::endl;
                     return std::vector<cv::Point>();
                 }
             }
@@ -208,103 +212,188 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
 
         int centerx = center.x;
 
-        for (int i = centerx; i < image2.cols; i++ ){
+        for (int i = centerx; i < image2.cols; i+=2 ){
             pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i, center.y),false);
 
-            if (pointOnContour < 0) {
+            if (pointOnContour == -1) {
                 // cv::circle(image2, cv::Point2f(center.x,i), 1, 255, 3);
                 if (image2.at<uchar>(center.y, i) == 255) {
-                    // contArea = cv::contourArea(largestContour);
-                    // std::cout << "return pointoncontour to upstairs" << std::endl;
                     return std::vector<cv::Point>();
                 }
             }
         }
-        for (int i = centerx; i >= 0; i-- ){
+        for (int i = centerx; i >= 0; i-=2 ){
             pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i, center.y),false);
 
-            if (pointOnContour < 0) {
-                // cv::circle(image2, cv::Point2f(center.x,i), 1, 255, 3);
+            if (pointOnContour == -1) {
                 if (image2.at<uchar>(center.y, i) == 255) {
-                    // contArea = cv::contourArea(largestContour);
-                    // std::cout << "return pointoncontour to upstairs" << std::endl;
                     return std::vector<cv::Point>();
                 }
             }
+        }
+
+        if (contourArea > 120000) {
+            return std::vector<cv::Point>();
+        }
+        else if(std::abs(contArea - cv::contourArea(largestContour)) > 80000){ //elseif
+            return std::vector<cv::Point>();
+        }
+        if (solidity < 0.75){
+            return std::vector<cv::Point>();
         }
     }
 
     contArea = cv::contourArea(largestContour);
-    contLength = cv::arcLength(largestContour,true);
-    // std::cout << contLength << std::endl;
 
-    if (contourArea > 50000){ // 40000
+    int intersec = 0; int onContourCounter; int prevColumn; int rowIdx; int stepsize; int contourcount; int colbegin; int colend;
+    if (contourArea > 15000){ // 40000 
         if (persp == 1 || persp == 2){
-            int onContourCounter; int prevColumn;
-            for (int j = 10; j <= image2.rows/2; j++){
-                onContourCounter = 0;
-                prevColumn = -1;
-                for (int i = image2.cols-1; i >= 0; i--){
+            if (persp == 1){
+                stepsize = 4; contourcount = 4; colbegin = image2.cols-1; colend = 0;
+            }
+            else{
+                stepsize = 8; contourcount = 3; colbegin = image2.cols/2; colend = 0;
+            }
+            for (int j = 8; j <= image2.rows/2; j+=stepsize){ //4
+                onContourCounter = 0; prevColumn = -1;
+                for (int i = colbegin; i >= colend; i--){
                     double pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i,j),false);
 
                     if (pointOnContour == 0){
-                        if (prevColumn == -1 || (prevColumn - i >= 10)){
-                            cv::circle(image2, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2);
+                        if (prevColumn == -1 || (prevColumn - i >= 4)){ //8
+                            // cv::circle(prazna, cv::Point2f(i,j), 5, cv::Scalar(255,100,0), -1);
                             prevColumn = i;
                             onContourCounter += 1;
                         }
                     }
-                    if (onContourCounter >= 5){
-                        // cv::imshow("image2", image2);
-                        // cv::waitKey(0);
-                        // cv::destroyAllWindows();
-                        return std::vector<cv::Point>();
+                    if (onContourCounter >= contourcount){ // 5aaaaaaaaaaaaaaaaaaaa
+                        intersec+=1;
+                        if (intersec == 4){
+                            return std::vector<cv::Point>();
+                        }
+                        break;
                     }
                 }
             }
         }
-        else {
-            int onContourCounter; int prevColumn; int rowIdx;
-            for (int j = image2.rows/2; j <= image2.rows; j++){
-                if (image2.at<uchar>(image2.cols/2,j) == 255){
+        if (persp == 0 || persp == 2){ // persp je 2, ovdje na koronalni pogled nista ne utjece!
+            intersec = 0; rowIdx = -1;
+            for (int j = image2.rows/2; j <= image2.rows-1; j+=4){
+                if (image2.at<uchar>(j, image2.cols/2) == 255){
                     rowIdx = j;
                 }
-                else {
-                    break;
-                }
             }
-            for (int j = image2.rows/1.5; j <= rowIdx-10; j++){
-                onContourCounter = 0;
-                prevColumn = -1;
+            if (rowIdx == -1){
+                rowIdx = image2.rows - 40;
+            }
+            for (int j = image2.rows/2; j <= rowIdx-10; j+=4){ // -- filter za one konture kojima se nos uvuce - problem,2
+                onContourCounter = 0; prevColumn = -1;
                 for (int i = image2.cols-1; i >= 0; i--){
                     double pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i,j),false);
 
                     if (pointOnContour == 0){
-                        if (prevColumn == -1 || (prevColumn - i >= 10)){
-                            cv::circle(image2, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2);
+                        if (prevColumn == -1 || (prevColumn - i >= 6)){ // 8
+                            cv::circle(tempBGR, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2);
                             prevColumn = i;
                             onContourCounter += 1;
                         }
                     }
+
                     if (onContourCounter >= 4){
-                        // cv::circle(image2, cv::Point2f(10,j), 2, cv::Scalar(255,0,0), 2);
+                        intersec += 1;
+                        if (intersec >= 5){
+                            return std::vector<cv::Point>();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if (persp == 0){
+            // AKSIJALNI POGLED, 73,20,79 smetnja na uhu izvana CT !!!!!!!!
+            intersec = 0; std::vector<int> intens;
+            for (int j = 0; j <= image2.rows/2; j+=8){
+                onContourCounter = 0; prevColumn = -1; int totalsum = 0;
+                for (int i = image2.cols-1; i >= 0; i--){
+                    if (intens.size() >= 5){
+                        intens.erase(intens.begin());
+                    }
+                    intens.push_back(image2.at<uchar>(j,i)); //intensity
+                    double pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i,j),false);
+                    // cv::circle(tempBGR, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2);
+                    if (pointOnContour == 0){
+                        if (prevColumn == -1 || (prevColumn - i >= 2)){ // 8
+                            cv::circle(tempBGR, cv::Point2f(i,j), 2, cv::Scalar(255,0,0), 2); // tempbgr
+                            prevColumn = i;
+
+                            for (int num : intens){
+                                totalsum += num;
+                                // std::cout << totalsum/intens.size() << std::endl;
+                            }
+
+                            if ((totalsum / intens.size()) < 170){
+                                onContourCounter += 1;
+                                cv::circle(tempBGR, cv::Point2f(i,j), 1, cv::Scalar(255,0,0), 2);
+                            }
+                            else{
+                                if (onContourCounter > 2){
+                                    onContourCounter -= 2;
+                                }
+                                else{
+                                    onContourCounter = 0;
+                                }
+                            }
+                            totalsum = 0;
+                        }
+                    }
+                }
+                intens.clear();
+                if (onContourCounter >= 1){
+                    intersec += 1;
+                    if (intersec >= 5){
+                        // std::cout << onContourCounter << std::endl;
                         // cv::imshow("image2", image2);
                         // cv::waitKey(0);
                         // cv::destroyAllWindows();
                         return std::vector<cv::Point>();
                     }
+                    // break;
                 }
             }
         }
     }
-    larCont.push_back(largestContour);
 
-    cv::cvtColor(image2,image2,cv::COLOR_GRAY2BGR);
-    cv::drawContours(image2, larCont, -1, cv::Scalar(255,0,255),2);
+    if (persp == 1 || persp == 2){
+        if (contourArea < 30000){ // 35000
+            int pickrow = 30;
+            for (int i = image2.rows-pickrow; i < image2.rows; i++){ // bilo 25,40
+                for (int j = 0; j < image2.cols; j++){
+                    if (image2.at<uchar>(i,j) == 255){
+                        return std::vector<cv::Point>();
+                    }
+                }
+            }
+        }
+        if (contourArea < 50000){
+            for (int j=0; j<image2.cols; j++) {
+                if (image2.at<uchar>(image2.rows-1,j) == 255){
+                    return std::vector<cv::Point>();
+                }
+            }
+        }
+    }
 
-    // cv::imshow("image", image2);
-    // cv::waitKey(0);
-    // cv::destroyAllWindows();
+    else {
+        if (contourArea < 10000){
+            for (int j = 0; j < image2.cols/4; j++){
+                // cv::circle(image2,cv::Point2f(j, i),2,255,2);
+                if (image2.at<uchar>(image2.rows/2,j) == 255){
+                    // cv::circle(image2,cv::Point2f(492,131),2,255,2);
+                    return std::vector<cv::Point>();
+                }
+            }         
+        }
+    }
 
     if (!includeInteriorPoints) {
         // If only the contour points are requested, return them immediately
@@ -360,9 +449,9 @@ vtkSmartPointer<vtkPolyData> rDICOM::ConvertContourToVTKPolyData(const std::vect
     return polyData;
 }
 
-vtkSmartPointer<vtkPolyData> rDICOM::ExtractLargestContourFromSlice(vtkSmartPointer<vtkImageData> slice, int persp) {
+vtkSmartPointer<vtkPolyData> rDICOM::ExtractLargestContourFromSlice(vtkSmartPointer<vtkImageData> slice, int persp, int sliceNum) {
     cv::Mat image = ConvertVTKSliceToOpenCVMat(slice);
-    std::vector<cv::Point> largestContour = FindLargestContour(image,false,persp);
+    std::vector<cv::Point> largestContour = FindLargestContour(image,false,persp,sliceNum);
     return ConvertContourToVTKPolyData(largestContour);
 }
 
@@ -370,8 +459,7 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
     int dims[3];
     volume->GetDimensions(dims); // Get the dimensions of the volume data
     vtkSmartPointer<vtkMatrix4x4> resliceAxes = vtkSmartPointer<vtkMatrix4x4>::New();
-    std::cout << persp << std::endl;
-    bool initializeXYZ = true; float currdist;
+    bool initializeXYZ = true;
 
     switch (persp) {
     case 0:
@@ -408,7 +496,7 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
             vtkSmartPointer<vtkImageData> slice = reslicer->GetOutput();
 
             // Here you can process the slice, for example, extract the largest contour from the slice
-            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp);
+            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp,z);
             // Assuming largestContourPolyData is valid and has points
             vtkSmartPointer<vtkPoints> contourPoints = largestContourPolyData->GetPoints();
 
@@ -443,7 +531,6 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                         xyzList[4] = 0;
                         xyzList[5] = dims[2];
                         initializeXYZ = false;
-                        maxdist = 0;
                     }
                     // Add to the vector
                     if (worldPoint[0] < xyzList[0]) {
@@ -458,16 +545,10 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     if (worldPoint[1] > xyzList[3]) {
                         xyzList[3] = worldPoint[1];
                     }
-
-                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
-                    if (currdist > maxdist){
-                        maxdist = currdist;
-                    }
-
                 }
             }
-            // std::cout << maxdist << std::endl;
         }
+        // std::cout << maxdist << std::endl;
         break;
     case 1:
         // Setup the slicing orientation ----> SAGITAL slicing!!!!
@@ -509,7 +590,7 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
             vtkSmartPointer<vtkImageData> slice = reslicer->GetOutput();
 
             // Here you can process the slice, for example, extract the largest contour from the slice
-            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp);
+            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp,x);
             // Assuming largestContourPolyData is valid and has points
             vtkSmartPointer<vtkPoints> contourPoints = largestContourPolyData->GetPoints();
 
@@ -531,10 +612,9 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     worldPoint[1] = p[0] * spacing[1] + origin[1]; 
                     worldPoint[2] = -1*(p[1] * spacing[2] + origin[2])+dims[2]*spacing[2];
                     worldPoint[3] = 1; 
-                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
                     // Add to the vector
-                    std::cout << maxdist << std::endl;
-                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2]) && (std::abs(currdist) < std::abs(maxdist))){
+                    // std::cout << currdist << std::endl;
+                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2])){
                         pointsVector.push_back(worldPoint);
                     }
                 }
@@ -580,7 +660,7 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
             vtkSmartPointer<vtkImageData> slice = reslicer->GetOutput();
 
             // Here you can process the slice, for example, extract the largest contour from the slice
-            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp);
+            vtkSmartPointer<vtkPolyData> largestContourPolyData = ExtractLargestContourFromSlice(slice,persp,y);
             // Assuming largestContourPolyData is valid and has points
             vtkSmartPointer<vtkPoints> contourPoints = largestContourPolyData->GetPoints();
 
@@ -605,9 +685,8 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
                     worldPoint[1] = sliceOrigin;// Y in mm
                     worldPoint[2] = -1*(p[1] * spacing[2] + origin[2])+dims[2]*spacing[2]; 
                     worldPoint[3] = 1; 
-                    currdist = std::sqrt((worldPoint[0]*worldPoint[0]) + (worldPoint[1]*worldPoint[1]) + (worldPoint[2]*worldPoint[2]));
 
-                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2]) && (currdist < maxdist))
+                    if ((xyzList[0] - border <= worldPoint[0] && xyzList[1] + border >= worldPoint[0] && xyzList[2] - border <= worldPoint[1] && xyzList[3] + border >= worldPoint[1] && xyzList[4] - border <= worldPoint[2] && xyzList[5] + border >= worldPoint[2]))
                         pointsVector.push_back(worldPoint);
                 }
             }

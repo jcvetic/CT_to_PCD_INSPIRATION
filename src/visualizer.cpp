@@ -152,6 +152,9 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     *combined_cloud = *filteredPointCloud1 + *filteredPointCloud2+ *filteredPointCloud3;
 
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud_nods(new pcl::PointCloud<pcl::PointXYZ>());
+    // *combined_cloud_nods = *pointCloud1+*pointCloud2+*pointCloud3;
+
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     voxelFilter_combined.setInputCloud(combined_cloud);
     voxelFilter_combined.filter(*filtered_combined_cloud);
@@ -179,7 +182,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     pcl::PCLPointCloud2 filteredpc2;
     pcl::toPCLPointCloud2(*filtered_combined_cloud,filteredpc2);
     // pcl::io::saveVTKFile("/home/jcvetic/INSPIRATION/Visualize_pointclouds/filtered_combined_cloud.vtk", filteredpc2);
-    // pcl::io::saveVTKFile(savefolder + "/filteredCC_VTK.vtk", filteredpc2);
+    pcl::io::saveVTKFile(savefolder + "/filteredCC_VTK_1_0.vtk", filteredpc2);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr diffIndices(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;

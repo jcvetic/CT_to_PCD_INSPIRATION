@@ -1,5 +1,6 @@
 #include "includes.h"
 #include "visualizer.h"
+// #include <vtkDICOMImageReader.h>
 
 
 void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/times.csv") {
@@ -12,12 +13,34 @@ void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcve
     }
 }
 
+void getPixelSpacing(){
+    std::string putanja = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/new_2103";
+    double *pixelSpacing, prevPixelSpacing = 1.0;
+    
+    for (const auto& entry : std::filesystem::directory_iterator(putanja)){
+        std::string folderPath = entry.path().string();
+
+        vtkSmartPointer<vtkDICOMImageReader> reader = vtkSmartPointer<vtkDICOMImageReader>::New();
+        reader->SetDirectoryName(folderPath.c_str());
+        reader->Update();
+
+        pixelSpacing = reader->GetPixelSpacing();
+
+        if (*pixelSpacing < prevPixelSpacing){
+            prevPixelSpacing = *pixelSpacing;
+        }
+    }
+
+    std::cout << "Minimum pixel spacing: " << prevPixelSpacing << std::endl;
+}
+
 int main() {
+    // getPixelSpacing();
     bool firstInit = true; bool directories = false; bool saveData = false;
-    std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/Ledinski_CT";
+    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/Ledinski_CT";
     // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/3";
     // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/dicombaza/Krhen_CT";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/thin/patient80";
+    std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/thin/patient45";
     // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip";
     // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip/patient20";
     // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/decomp";

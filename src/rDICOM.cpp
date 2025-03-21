@@ -568,7 +568,6 @@ void rDICOM::ProcessAndReplaceAllSlices(vtkSmartPointer<vtkImageData> volume, in
         for (int x = 0; x < dims[0]; ++x) {
             double sliceSpacing = volume->GetSpacing()[0]; // Get the z-spacing
             double sliceOrigin = volume->GetOrigin()[0] + x * sliceSpacing; // Calculate the origin of the current slice
-
             // std::cout << sliceOrigin << " " << sliceSpacing << "\n";
 
             // Configure the resliceAxes to extract the correct slice

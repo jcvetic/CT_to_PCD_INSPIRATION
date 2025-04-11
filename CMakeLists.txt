@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 project(Visualize_pointclouds LANGUAGES CXX C)
 
@@ -27,7 +27,7 @@ find_package( PCL REQUIRED )
 find_package( OpenCV REQUIRED )
 #find_package(Franka REQUIRED PATHS /home/filip/libfranka/build)
 find_package(Eigen3 REQUIRED)
-find_package(realsense2 REQUIRED)
+#find_package(realsense2 REQUIRED)
 ################################################################################
 ##Ultrasound
 #find_package(OpenIGTLink REQUIRED)
@@ -59,7 +59,7 @@ ${PCL_LIBRARIES}
 ${OpenCV_LIBS}
 # Franka::Franka
 Eigen3::Eigen
-${realsense2_LIBRARY}
+# ${realsense2_LIBRARY}
 #ortools
 #glog
 #/usr/local/lib/igtl/libigtlutil.a

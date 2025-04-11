@@ -120,7 +120,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     }
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter;
-    voxelFilter.setLeafSize(1.0f, 1.0f, 1.0f); // Set the voxel size
+    voxelFilter.setLeafSize(0.38f, 0.38f, 0.38f); // Set the voxel size
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud1(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud2(new pcl::PointCloud<pcl::PointXYZ>());
@@ -147,7 +147,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     std::cout << "Total sum of filtered clouds = " << filteredPointCloud1->size() + filteredPointCloud2->size() + filteredPointCloud3->size() << std::endl;
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter_combined;
-    voxelFilter_combined.setLeafSize(1.0f, 1.0f, 1.0f); // Set the voxel size
+    voxelFilter_combined.setLeafSize(0.38f, 0.38f, 0.38f); // Set the voxel size
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     *combined_cloud = *filteredPointCloud1 + *filteredPointCloud2+ *filteredPointCloud3;
@@ -182,7 +182,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     pcl::PCLPointCloud2 filteredpc2;
     pcl::toPCLPointCloud2(*filtered_combined_cloud,filteredpc2);
     // pcl::io::saveVTKFile("/home/jcvetic/INSPIRATION/Visualize_pointclouds/filtered_combined_cloud.vtk", filteredpc2);
-    pcl::io::saveVTKFile(savefolder + "/filteredCC_VTK_1_0.vtk", filteredpc2);
+    // pcl::io::saveVTKFile(savefolder + "/filteredCC_VTK_0_38.vtk", filteredpc2);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr diffIndices(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -222,7 +222,6 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
 
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud");
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud88");
-    // std::cout << "Number of difference points between Fcombined and Faxial cloud = " << diffIndices->size() << std::endl;
 
 // dodano --- ines crop
     // pcl::CropBox<pcl::PointXYZ> boxfilter;
@@ -307,14 +306,14 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     // pcl::io::savePCDFileASCII(savefolder + "/coronal.pcd", *filteredPointCloud3);
 
     while (!viewer->wasStopped()){
-        viewer->spinOnce();
+        viewer->spin();
 
-    //     viewer2->spinOnce();
-    //     viewer3->spinOnce();
-    //     viewer4->spinOnce();
-    //     // viewer44.spinOnce();
+    // //     viewer2->spinOnce();
+    // //     viewer3->spinOnce();
+    // //     viewer4->spinOnce();
+    // //     // viewer44.spinOnce();
 
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     // return 0;
 }

@@ -37,3 +37,5 @@ cmake --build . --config Debug -j$(nproc)
 
 ## Authors
 Jurica Cvetić
+
+--> readme under development - WIP!

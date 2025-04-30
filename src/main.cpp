@@ -3,15 +3,15 @@
 // #include <vtkDICOMImageReader.h>
 
 
-void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/times.csv") {
-    std::ofstream file(filename, std::ios::app); // Open in append mode
-    if (file.is_open()) {
-        file << elapsedTime << "\n"; // Append new time to file
-        file.close();
-    } else {
-        std::cerr << "Error: Unable to open file " << filename << std::endl;
-    }
-}
+// void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/results/times.csv") {
+//     std::ofstream file(filename, std::ios::app); // Open in append mode
+//     if (file.is_open()) {
+//         file << elapsedTime << "\n"; // Append new time to file
+//         file.close();
+//     } else {
+//         std::cerr << "Error: Unable to open file " << filename << std::endl;
+//     }
+// }
 
 // void getPixelSpacing(){
 //     std::string putanja = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/new_2103";
@@ -37,17 +37,7 @@ void saveTimeToCSV(double elapsedTime, const std::string& filename = "/home/jcve
 int main() {
     // getPixelSpacing();
     bool firstInit = true; bool directories = false; bool saveData = false;
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/Ledinski_CT";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/3";
-    std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/dicombaza/Krhen_CT";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/thin/patient45";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/new_2103";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500_wip/patient20";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/decomp";
-
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CT_dicom/Cvitan_CT";
-    // std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/slobodnoCT/";
+    std::string basePath = "/home/jcvetic/INSPIRATION/Visualize_pointclouds/data/CQ500/thin/patient45";
 
     for (const auto& entry : std::filesystem::directory_iterator(basePath)){
         if (entry.is_directory()){

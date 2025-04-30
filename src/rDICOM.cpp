@@ -173,13 +173,13 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
     contHullArea = cv::contourArea(contHull);
     solidity = contourArea / contHullArea;
 
-    if (contourArea > 40000){ // 35k  -- vezan za unutrasnjost glave, nema veze s okolinom
+    if (contourArea > 40000){
         if (solidity < 0.88){
             return std::vector<cv::Point>();
         }
     }
 
-    if (8000 < std::abs(contArea - cv::contourArea(largestContour)) && std::abs(contArea - cv::contourArea(largestContour)) < 120000){ // 8000 i 90000, izvan pronadene konture ne smije biti bijelo, to je filter za uklanjanje slucaja di je krug unutar kruga (vanjski je tocan, a nade se odvojeni unutrasnji)
+    if (8000 < std::abs(contArea - cv::contourArea(largestContour)) && std::abs(contArea - cv::contourArea(largestContour)) < 120000){
         cv::Moments m = cv::moments(largestContour);
         cv::Point2f center(m.m10 / m.m00, m.m01 / m.m00);
         int centery = center.y; int pointOnContour;
@@ -261,12 +261,11 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
 
                     if (pointOnContour == 0){
                         if (prevColumn == -1 || (prevColumn - i >= 4)){ //8
-                            // cv::circle(prazna, cv::Point2f(i,j), 5, cv::Scalar(255,100,0), -1);
                             prevColumn = i;
                             onContourCounter += 1;
                         }
                     }
-                    if (onContourCounter >= contourcount){ // 5aaaaaaaaaaaaaaaaaaaa
+                    if (onContourCounter >= contourcount){
                         intersec+=1;
                         if (intersec == 4){
                             return std::vector<cv::Point>();
@@ -276,7 +275,7 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
                 }
             }
         }
-        if (persp == 0 || persp == 2){ // persp je 2, ovdje na koronalni pogled nista ne utjece!
+        if (persp == 0 || persp == 2){ 
             intersec = 0; rowIdx = -1;
             for (int j = image2.rows/2; j <= image2.rows-1; j+=4){
                 if (image2.at<uchar>(j, image2.cols/2) == 255){
@@ -286,7 +285,7 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
             if (rowIdx == -1){
                 rowIdx = image2.rows - 40;
             }
-            for (int j = image2.rows/2; j <= rowIdx-10; j+=4){ // -- filter za one konture kojima se nos uvuce - problem,2
+            for (int j = image2.rows/2; j <= rowIdx-10; j+=4){ 
                 onContourCounter = 0; prevColumn = -1;
                 for (int i = image2.cols-1; i >= 0; i--){
                     double pointOnContour = cv::pointPolygonTest(largestContour,cv::Point2f(i,j),false);
@@ -310,7 +309,6 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
             }
         }
         if (persp == 0){
-            // AKSIJALNI POGLED, 73,20,79 smetnja na uhu izvana CT !!!!!!!!
             intersec = 0; std::vector<int> intens;
             for (int j = 0; j <= image2.rows/2; j+=8){
                 onContourCounter = 0; prevColumn = -1; int totalsum = 0;
@@ -364,7 +362,7 @@ std::vector<cv::Point> rDICOM::FindLargestContour(const cv::Mat& image, bool inc
     }
 
     if (persp == 1 || persp == 2){
-        if (contourArea < 30000){ // 35000
+        if (contourArea < 30000){
             int pickrow = 30;
             for (int i = image2.rows-pickrow; i < image2.rows; i++){ // bilo 25,40
                 for (int j = 0; j < image2.cols; j++){
@@ -795,7 +793,7 @@ std::vector<std::vector<std::array<double, 4>>> rDICOM::getDICOMdata(std::string
                 double p[3];
                 points->GetPoint(i, p);
                 // Assuming the value to be 1 for each vertex, as an example
-                // voxelVector.push_back({p[0], p[1], p[2], 1.0});  PAZI OVO JE BILO NEKOMENTIRANO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // voxelVector.push_back({p[0], p[1], p[2], 1.0}); 
             }
             // std::cout<<"VoxelVector = "<<voxelVector.size()<<std::endl;
             //-------------------- Visualization of the resulting surface mesh

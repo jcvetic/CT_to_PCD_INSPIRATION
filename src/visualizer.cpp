@@ -120,7 +120,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     }
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter;
-    voxelFilter.setLeafSize(0.38f, 0.38f, 0.38f); // Set the voxel size
+    voxelFilter.setLeafSize(0.5f, 0.5f, 0.5f); // Set the voxel size
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud1(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredPointCloud2(new pcl::PointCloud<pcl::PointXYZ>());
@@ -147,7 +147,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     std::cout << "Total sum of filtered clouds = " << filteredPointCloud1->size() + filteredPointCloud2->size() + filteredPointCloud3->size() << std::endl;
 
     pcl::VoxelGrid<pcl::PointXYZ> voxelFilter_combined;
-    voxelFilter_combined.setLeafSize(0.38f, 0.38f, 0.38f); // Set the voxel size
+    voxelFilter_combined.setLeafSize(0.5f, 0.5f, 0.5f); // Set the voxel size
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud(new pcl::PointCloud<pcl::PointXYZ>());
     *combined_cloud = *filteredPointCloud1 + *filteredPointCloud2+ *filteredPointCloud3;
@@ -165,8 +165,8 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
 
     pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
     outrem.setInputCloud(filtered_combined_cloud);
-    outrem.setRadiusSearch(10); // 10,5
-    outrem.setMinNeighborsInRadius(250); // 100, 800(nestane cijeli pcd), 400(pola pcd fali), 250 je ok, 55
+    outrem.setRadiusSearch(10);
+    outrem.setMinNeighborsInRadius(250);
     outrem.setKeepOrganized(false);
     outrem.filter(*filtered_combined_cloud);
 
@@ -189,7 +189,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
     kdtree.setInputCloud(filteredPointCloud1);
 
     float radius = 1.0;
-    for (int i = filtered_combined_cloud->points.size() - 1; i >= 0; --i){ // filtered_combined_cloud == downsampled + outlierremoval, UNIQUE tocke, a cista razlika predstavlja ukupnu razliku broja tocaka!!!
+    for (int i = filtered_combined_cloud->points.size() - 1; i >= 0; --i){
         pcl::PointXYZ search_point = filtered_combined_cloud->points[i];
         std::vector<int> point_idx_search;
         std::vector<float> point_squared_distance;
@@ -217,7 +217,7 @@ void visualizer::visualizePointClouds(std::vector<pcl::PointCloud<pcl::PointXYZ>
 
     viewer->addPointCloud(filtered_combined_cloud, color, "cloud");
     viewer->addPointCloud(diffIndices, color88, "cloud88");
-    viewer->setBackgroundColor(1, 1, 1);
+    viewer->setBackgroundColor(0, 0, 0);
     visualizer::setCameraPositionBasedOnBoundingBox(*viewer, filtered_combined_cloud);
 
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud");
